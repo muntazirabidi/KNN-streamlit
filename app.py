@@ -37,7 +37,6 @@ st.markdown("""
         padding: 1rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         margin-bottom: 1rem;
-        text-align: center;
     }
     .section-header {
         background-color: #4CAF50;
@@ -138,17 +137,11 @@ with col2:
         "Training Time": training_time
     }
     
-    # Create smaller columns for metrics display
-    metric_columns = st.columns(3)  # Create 3 equal-sized columns
-    
-    metric_values = list(metrics.values())
-    metric_labels = list(metrics.keys())
-    
-    for idx, col in enumerate(metric_columns):
-        col.markdown(f"""
+    for metric, value in metrics.items():
+        st.markdown(f"""
         <div class='metric-card'>
-            <h4>{metric_labels[idx]}</h4>
-            <h2 style='color: #4CAF50;'>{metric_values[idx]:.4f}</h2>
+            <h4>{metric}</h4>
+            <h2 style='color: #4CAF50;'>{value:.4f}</h2>
         </div>
         """, unsafe_allow_html=True)
 
