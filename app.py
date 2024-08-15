@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -9,7 +8,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.inspection import permutation_importance
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -32,14 +31,6 @@ st.markdown("""
         padding: 0.5rem 1rem;
     }
     .stButton>button:hover { background-color: #45a049; }
-    .metric-card {
-        background-color: white;
-        border-radius: 10px;
-        padding: 1rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
-        text-align: center;
-    }
     .section-header {
         background-color: #4CAF50;
         color: white;
@@ -72,8 +63,9 @@ models = {
 }
 
 # Train the selected model
-@st.cache_resource
+@st.cache_resource(ttl=600)  # Cache for 10 minutes
 def train_model(X, y, model_name):
+    X += np.random.normal(0, 0.1, X.shape)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
@@ -145,21 +137,14 @@ with col2:
     recall = recall_score(y_test, y_pred, average='weighted')
     f1 = f1_score(y_test, y_pred, average='weighted')
     
-    metrics = {
-        "Accuracy": accuracy,
-        "Precision": precision,
-        "Recall": recall,
-        "F1 Score": f1,
-        "Training Time": training_time
-    }
+    # Display metrics inline using columns for a tighter layout
+    col_acc, col_prec, col_rec, col_f1, col_time = st.columns(5)
     
-    for metric, value in metrics.items():
-        st.markdown(f"""
-        <div class='metric-card'>
-            <h4>{metric}</h4>
-            <h2 style='color: #4CAF50;'>{value:.4f}</h2>
-        </div>
-        """, unsafe_allow_html=True)
+    col_acc.metric("Accuracy", f"{accuracy:.4f}")
+    col_prec.metric("Precision", f"{precision:.4f}")
+    col_rec.metric("Recall", f"{recall:.4f}")
+    col_f1.metric("F1 Score", f"{f1:.4f}")
+    col_time.metric("Training Time", f"{training_time:.4f}s")
 
 # Feature Importance Section
 st.markdown("<div class='section-header'>Feature Importance</div>", unsafe_allow_html=True)
@@ -196,6 +181,76 @@ def compare_models(X, y):
         results.append({"Model": name, "Accuracy": accuracy})
     
     return pd.DataFrame(results)
+
+# Interactive Data Exploration
+st.markdown("<div class='section-header'>Interactive Data Exploration</div>", unsafe_allow_html=True)
+
+df = pd.DataFrame(data=np.c_[iris['data'], iris['target']], columns=iris['feature_names'] + ['target'])
+df['species'] = df['target'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
+
+feature_x = st.selectbox('Select feature for x-axis', iris.feature_names)
+feature_y = st.selectbox('Select feature for y-axis', iris.feature_names)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+scatter = ax.scatter(df[feature_x], df[feature_y], c=df['target'], cmap='viridis')
+ax.set_xlabel(feature_x)
+ax.set_ylabel(feature_y)
+ax.set_title(f'{feature_y} vs {feature_x}')
+plt.colorbar(scatter)
+st.pyplot(fig)
+
+# Confusion Matrix Visualization
+st.markdown("<div class='section-header'>Confusion Matrix</div>", unsafe_allow_html=True)
+
+y_pred = model.predict(X_test_scaled)
+cm = confusion_matrix(y_test, y_pred)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax)
+ax.set_xlabel('Predicted')
+ax.set_ylabel('Actual')
+ax.set_title(f'Confusion Matrix for {selected_model}')
+st.pyplot(fig)
+
+# Hyperparameter Tuning
+st.markdown("<div class='section-header'>Hyperparameter Tuning</div>", unsafe_allow_html=True)
+
+st.write("Adjust hyperparameters and see how they affect model performance:")
+
+if selected_model == "K-Nearest Neighbors":
+    n_neighbors = st.slider('Number of neighbors', 1, 20, 5)
+    models["K-Nearest Neighbors"] = KNeighborsClassifier(n_neighbors=n_neighbors)
+elif selected_model == "Support Vector Machine":
+    C = st.slider('C (Regularization parameter)', 0.01, 10.0, 1.0)
+    kernel = st.selectbox('Kernel', ['rbf', 'linear', 'poly'])
+    models["Support Vector Machine"] = SVC(C=C, kernel=kernel, probability=True)
+elif selected_model == "Decision Tree":
+    max_depth = st.slider('Max depth', 1, 20, 5)
+    models["Decision Tree"] = DecisionTreeClassifier(max_depth=max_depth)
+elif selected_model == "Random Forest":
+    n_estimators = st.slider('Number of trees', 1, 200, 100)
+    max_depth = st.slider('Max depth', 1, 20, 5)
+    models["Random Forest"] = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth)
+
+if st.button('Retrain Model'):
+    model, scaler, X_test_scaled, y_test, training_time = train_model(X, y, selected_model)
+    st.success('Model retrained successfully!')
+
+    # Update performance metrics
+    y_pred = model.predict(X_test_scaled)
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='weighted')
+    recall = recall_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='weighted')
+    
+    col_acc, col_prec, col_rec, col_f1, col_time = st.columns(5)
+    
+    col_acc.metric("Accuracy", f"{accuracy:.4f}")
+    col_prec.metric("Precision", f"{precision:.4f}")
+    col_rec.metric("Recall", f"{recall:.4f}")
+    col_f1.metric("F1 Score", f"{f1:.4f}")
+    col_time.metric("Training Time", f"{training_time:.4f}s")
+
 
 comparison_df = compare_models(X, y)
 fig, ax = plt.subplots(figsize=(10, 6))
