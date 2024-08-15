@@ -1,42 +1,44 @@
+
 import streamlit as st
 import numpy as np
 import pandas as pd
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.inspection import permutation_importance
 import matplotlib.pyplot as plt
 import seaborn as sns
 import time
 
-# Set Streamlit page configuration (this must be the first Streamlit command)
-st.set_page_config(page_title="Iris Classification with k-NN", layout="wide", initial_sidebar_state="expanded")
+# Set page configuration
+st.set_page_config(page_title="Iris Classification App", layout="wide", initial_sidebar_state="expanded")
 
 # Custom CSS for improved aesthetics
 st.markdown("""
 <style>
-    .main {
-        padding: 2rem;
-    }
-    .stApp {
-        background-color: #f5f5f5;
-    }
-    .stButton>button {
-        color: #ffffff;
-        background-color: #4CAF50;
+    .main { padding: 2rem; }
+    .stApp { background-color: #f0f2f6; }
+    .stButton>button { 
+        color: #ffffff; 
+        background-color: #4CAF50; 
         border-radius: 5px;
+        font-weight: bold;
+        border: none;
+        padding: 0.5rem 1rem;
     }
-    .stButton>button:hover {
-        background-color: #45a049;
-    }
+    .stButton>button:hover { background-color: #45a049; }
     .metric-card {
         background-color: white;
-        border-radius: 5px;
+        border-radius: 10px;
         padding: 1rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         margin-bottom: 1rem;
+        text-align: center;
     }
     .section-header {
         background-color: #4CAF50;
@@ -45,7 +47,9 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 1rem;
         text-align: center;
+        font-weight: bold;
     }
+    .stSelectbox { margin-bottom: 1rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -59,28 +63,37 @@ def load_data():
 
 X, y, iris = load_data()
 
-# Train the model
+# Define models
+models = {
+    "K-Nearest Neighbors": KNeighborsClassifier(),
+    "Support Vector Machine": SVC(probability=True),
+    "Decision Tree": DecisionTreeClassifier(),
+    "Random Forest": RandomForestClassifier()
+}
+
+# Train the selected model
 @st.cache_resource
-def train_model(X, y):
+def train_model(X, y, model_name):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
+    model = models[model_name]
     start_time = time.time()
-    model = KNeighborsClassifier(n_neighbors=5)
     model.fit(X_train_scaled, y_train)
     training_time = time.time() - start_time
     
     return model, scaler, X_test_scaled, y_test, training_time
 
-model, scaler, X_test_scaled, y_test, training_time = train_model(X, y)
-
 # Streamlit app title
-st.markdown("<h1 style='text-align: center; color: #4CAF50;'>Iris Classification with k-NN</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #4CAF50;'>ML Classification with Iris Data</h1>", unsafe_allow_html=True)
 
-# Sidebar for user input
+# Sidebar for user input and model selection
 with st.sidebar:
+    st.markdown("<div class='section-header'>Model Selection</div>", unsafe_allow_html=True)
+    selected_model = st.selectbox("Choose a model", list(models.keys()))
+    
     st.markdown("<div class='section-header'>Input Features</div>", unsafe_allow_html=True)
     st.markdown("Adjust the sliders to input iris measurements:")
     
@@ -90,6 +103,9 @@ with st.sidebar:
     petal_width = st.slider('Petal Width (cm)', 0.1, 2.5, 1.5, 0.1)
     
     predict_button = st.button('Predict Iris Species')
+
+# Train the selected model
+model, scaler, X_test_scaled, y_test, training_time = train_model(X, y, selected_model)
 
 # Main Layout
 col1, col2 = st.columns([3, 2])
@@ -110,15 +126,15 @@ with col1:
         prob_df = pd.DataFrame(prediction_proba, columns=iris.target_names)
         st.dataframe(prob_df.style.background_gradient(cmap='Blues').format("{:.2%}"))
         
-        # Nearest Neighbors
-        st.markdown("### Nearest Neighbors")
-        distances, indices = model.kneighbors(user_input_scaled)
-        neighbors_df = pd.DataFrame({
-            'Neighbor': range(1, 6),
-            'Distance': distances[0],
-            'Index in Training Set': indices[0]
-        })
-        st.dataframe(neighbors_df.style.background_gradient(cmap='Greens'))
+        if selected_model == "K-Nearest Neighbors":
+            st.markdown("### Nearest Neighbors")
+            distances, indices = model.kneighbors(user_input_scaled)
+            neighbors_df = pd.DataFrame({
+                'Neighbor': range(1, 6),
+                'Distance': distances[0],
+                'Index in Training Set': indices[0]
+            })
+            st.dataframe(neighbors_df.style.background_gradient(cmap='Greens'))
 
 with col2:
     st.markdown("<div class='section-header'>Model Performance</div>", unsafe_allow_html=True)
@@ -157,11 +173,37 @@ feature_importance = feature_importance.sort_values('Importance', ascending=Fals
 
 fig, ax = plt.subplots(figsize=(10, 6))
 sns.barplot(x="Importance", y="Feature", data=feature_importance, palette="viridis", ax=ax)
-ax.set_title("Feature Importance (Permutation Importance)")
+ax.set_title(f"Feature Importance for {selected_model}")
 ax.set_xlabel("Mean Importance Score")
 ax.set_ylabel("Feature")
 st.pyplot(fig)
 
+# Model Comparison Section
+st.markdown("<div class='section-header'>Model Comparison</div>", unsafe_allow_html=True)
+
+@st.cache_data
+def compare_models(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    results = []
+    for name, model in models.items():
+        model.fit(X_train_scaled, y_train)
+        y_pred = model.predict(X_test_scaled)
+        accuracy = accuracy_score(y_test, y_pred)
+        results.append({"Model": name, "Accuracy": accuracy})
+    
+    return pd.DataFrame(results)
+
+comparison_df = compare_models(X, y)
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.barplot(x="Accuracy", y="Model", data=comparison_df, palette="viridis", ax=ax)
+ax.set_title("Model Comparison")
+ax.set_xlabel("Accuracy")
+st.pyplot(fig)
+
 # Footer
 st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: grey;'>Developed using Streamlit and scikit-learn</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: grey;'>Developed with ❤️ using Streamlit and scikit-learn</p>", unsafe_allow_html=True)
