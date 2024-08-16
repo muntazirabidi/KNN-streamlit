@@ -29,18 +29,47 @@ st.markdown("""
         font-weight: bold;
         border: none;
         padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
     }
-    .stButton>button:hover { background-color: #45a049; }
+    .stButton>button:hover { 
+        background-color: #45a049;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
     .section-header {
         background-color: #4CAF50;
         color: white;
-        padding: 0.5rem;
+        padding: 0.7rem;
         border-radius: 5px;
-        margin-bottom: 1rem;
+        margin: 1.5rem 0 1rem 0;
         text-align: center;
         font-weight: bold;
+        font-size: 1.2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .stSelectbox { margin-bottom: 1rem; }
+    .stSlider { margin-bottom: 1.5rem; }
+    .metric-card {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #4CAF50;
+    }
+    .metric-label {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    .plot-container {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -79,7 +108,7 @@ def train_model(X, y, model_name):
     return model, scaler, X_test_scaled, y_test, training_time
 
 # Streamlit app title
-st.markdown("<h1 style='text-align: center; color: #4CAF50;'>ML Classification with Iris Data</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #4CAF50; margin-bottom: 2rem;'>🌸 Iris Classification App</h1>", unsafe_allow_html=True)
 
 # Sidebar for user input and model selection
 with st.sidebar:
@@ -137,14 +166,21 @@ with col2:
     recall = recall_score(y_test, y_pred, average='weighted')
     f1 = f1_score(y_test, y_pred, average='weighted')
     
-    # Display metrics inline using columns for a tighter layout
-    col_acc, col_prec, col_rec, col_f1, col_time = st.columns(5)
+    # Display metrics in a more visually appealing way
+    col_acc, col_prec = st.columns(2)
+    col_rec, col_f1 = st.columns(2)
+    col_time = st.columns(1)[0]
     
-    col_acc.metric("Accuracy", f"{accuracy:.4f}")
-    col_prec.metric("Precision", f"{precision:.4f}")
-    col_rec.metric("Recall", f"{recall:.4f}")
-    col_f1.metric("F1 Score", f"{f1:.4f}")
-    col_time.metric("Training Time", f"{training_time:.4f}s")
+    with col_acc:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.2f}%</div><div class='metric-label'>Accuracy</div></div>".format(accuracy*100), unsafe_allow_html=True)
+    with col_prec:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.2f}%</div><div class='metric-label'>Precision</div></div>".format(precision*100), unsafe_allow_html=True)
+    with col_rec:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.2f}%</div><div class='metric-label'>Recall</div></div>".format(recall*100), unsafe_allow_html=True)
+    with col_f1:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.2f}%</div><div class='metric-label'>F1 Score</div></div>".format(f1*100), unsafe_allow_html=True)
+    with col_time:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.4f}s</div><div class='metric-label'>Training Time</div></div>".format(training_time), unsafe_allow_html=True)
 
 # Feature Importance Section
 st.markdown("<div class='section-header'>Feature Importance</div>", unsafe_allow_html=True)
@@ -161,7 +197,9 @@ sns.barplot(x="Importance", y="Feature", data=feature_importance, palette="virid
 ax.set_title(f"Feature Importance for {selected_model}")
 ax.set_xlabel("Mean Importance Score")
 ax.set_ylabel("Feature")
+st.markdown("<div class='plot-container'>", unsafe_allow_html=True)
 st.pyplot(fig)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # Model Comparison Section
 st.markdown("<div class='section-header'>Model Comparison</div>", unsafe_allow_html=True)
@@ -182,14 +220,26 @@ def compare_models(X, y):
     
     return pd.DataFrame(results)
 
+comparison_df = compare_models(X, y)
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.barplot(x="Accuracy", y="Model", data=comparison_df, palette="viridis", ax=ax)
+ax.set_title("Model Comparison")
+ax.set_xlabel("Accuracy")
+st.markdown("<div class='plot-container'>", unsafe_allow_html=True)
+st.pyplot(fig)
+st.markdown("</div>", unsafe_allow_html=True)
+
 # Interactive Data Exploration
 st.markdown("<div class='section-header'>Interactive Data Exploration</div>", unsafe_allow_html=True)
 
 df = pd.DataFrame(data=np.c_[iris['data'], iris['target']], columns=iris['feature_names'] + ['target'])
 df['species'] = df['target'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
 
-feature_x = st.selectbox('Select feature for x-axis', iris.feature_names)
-feature_y = st.selectbox('Select feature for y-axis', iris.feature_names)
+col1, col2 = st.columns(2)
+with col1:
+    feature_x = st.selectbox('Select feature for x-axis', iris.feature_names)
+with col2:
+    feature_y = st.selectbox('Select feature for y-axis', iris.feature_names)
 
 fig, ax = plt.subplots(figsize=(10, 6))
 scatter = ax.scatter(df[feature_x], df[feature_y], c=df['target'], cmap='viridis')
@@ -197,7 +247,9 @@ ax.set_xlabel(feature_x)
 ax.set_ylabel(feature_y)
 ax.set_title(f'{feature_y} vs {feature_x}')
 plt.colorbar(scatter)
+st.markdown("<div class='plot-container'>", unsafe_allow_html=True)
 st.pyplot(fig)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # Confusion Matrix Visualization
 st.markdown("<div class='section-header'>Confusion Matrix</div>", unsafe_allow_html=True)
@@ -210,7 +262,9 @@ sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax)
 ax.set_xlabel('Predicted')
 ax.set_ylabel('Actual')
 ax.set_title(f'Confusion Matrix for {selected_model}')
+st.markdown("<div class='plot-container'>", unsafe_allow_html=True)
 st.pyplot(fig)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # Hyperparameter Tuning
 st.markdown("<div class='section-header'>Hyperparameter Tuning</div>", unsafe_allow_html=True)
@@ -243,22 +297,55 @@ if st.button('Retrain Model'):
     recall = recall_score(y_test, y_pred, average='weighted')
     f1 = f1_score(y_test, y_pred, average='weighted')
     
-    col_acc, col_prec, col_rec, col_f1, col_time = st.columns(5)
+    # Display updated metrics
+    col_acc, col_prec = st.columns(2)
+    col_rec, col_f1 = st.columns(2)
+    col_time = st.columns(1)[0]
     
-    col_acc.metric("Accuracy", f"{accuracy:.4f}")
-    col_prec.metric("Precision", f"{precision:.4f}")
-    col_rec.metric("Recall", f"{recall:.4f}")
-    col_f1.metric("F1 Score", f"{f1:.4f}")
-    col_time.metric("Training Time", f"{training_time:.4f}s")
+    with col_acc:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.2f}%</div><div class='metric-label'>Accuracy</div></div>".format(accuracy*100), unsafe_allow_html=True)
+    with col_prec:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.2f}%</div><div class='metric-label'>Precision</div></div>".format(precision*100), unsafe_allow_html=True)
+    with col_rec:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.2f}%</div><div class='metric-label'>Recall</div></div>".format(recall*100), unsafe_allow_html=True)
+    with col_f1:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.2f}%</div><div class='metric-label'>F1 Score</div></div>".format(f1*100), unsafe_allow_html=True)
+    with col_time:
+        st.markdown("<div class='metric-card'><div class='metric-value'>{:.4f}s</div><div class='metric-label'>Training Time</div></div>".format(training_time), unsafe_allow_html=True)
 
+    # Update feature importance plot
+    perm_importance = permutation_importance(model, X_test_scaled, y_test, n_repeats=10, random_state=42)
+    feature_importance = pd.DataFrame({
+        'Feature': iris.feature_names,
+        'Importance': perm_importance.importances_mean
+    }).sort_values('Importance', ascending=False)
 
-comparison_df = compare_models(X, y)
-fig, ax = plt.subplots(figsize=(10, 6))
-sns.barplot(x="Accuracy", y="Model", data=comparison_df, palette="viridis", ax=ax)
-ax.set_title("Model Comparison")
-ax.set_xlabel("Accuracy")
-st.pyplot(fig)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x="Importance", y="Feature", data=feature_importance, palette="viridis", ax=ax)
+    ax.set_title(f"Updated Feature Importance for {selected_model}")
+    ax.set_xlabel("Mean Importance Score")
+    ax.set_ylabel("Feature")
+    st.markdown("<div class='plot-container'>", unsafe_allow_html=True)
+    st.pyplot(fig)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Update confusion matrix
+    y_pred = model.predict(X_test_scaled)
+    cm = confusion_matrix(y_test, y_pred)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax)
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('Actual')
+    ax.setTitle(f'Updated Confusion Matrix for {selected_model}')
+    st.markdown("<div class='plot-container'>", unsafe_allow_html=True)
+    st.pyplot(fig)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Footer
 st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: grey;'>Developed with ❤️ using Streamlit and scikit-learn</p>", unsafe_allow_html=True)
+st.markdown("""
+<div style='text-align: center; color: #666; padding: 1rem;'>
+    <p>Developed with ❤️ using Streamlit and scikit-learn</p>
+    <p>© 2024 Iris Classification App. All rights reserved.</p>
+</div>
+""", unsafe_allow_html=True)
